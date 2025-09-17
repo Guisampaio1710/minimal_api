@@ -18,7 +18,8 @@ using MinimalApi.Infraestrutura.Db;
 
 public class Startup
 {
-    public Startup(IConfiguration configuration)
+    
+        public Startup(IConfiguration configuration)
     {
         Configuration = configuration;
         key = Configuration?.GetSection("Jwt")?.ToString() ?? "";
@@ -42,7 +43,7 @@ public class Startup
         });
 
         services.AddAuthorization();
-
+        services.AddScoped<ILogServico, LogServico>();
         services.AddScoped<IAdministradorServico, AdministradorServico>();
         services.AddScoped<IVeiculoServico, VeiculoServico>();
 
@@ -93,8 +94,14 @@ public class Startup
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
-        app.UseSwagger();
-        app.UseSwaggerUI();
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Minha API V1");
+    c.RoutePrefix = string.Empty; // isso faz abrir direto na raiz (http://localhost:<porta>/)
+});
+
+
 
         app.UseRouting();
 
@@ -265,25 +272,27 @@ public class Startup
             .RequireAuthorization(new AuthorizeAttribute { Roles = "Adm,Editor" })
             .WithTags("Veiculos");
 
-            endpoints.MapPut("/veiculos/{id}", ([FromRoute] int id, VeiculoDTO veiculoDTO, IVeiculoServico veiculoServico) => {
-                var veiculo = veiculoServico.BuscaPorId(id);
+         endpoints.MapPut("/veiculos/{id}", ([FromRoute] int id, VeiculoDTO veiculoDTO, IVeiculoServico veiculoServico, ILogServico logServico, HttpContext http) => {
+              var veiculo = veiculoServico.BuscaPorId(id);
                 if(veiculo == null) return Results.NotFound();
-                
-                var validacao = validaDTO(veiculoDTO);
-                if(validacao.Mensagens.Count > 0)
-                    return Results.BadRequest(validacao);
-                
+    
+                var usuario = http.User.FindFirst("Email")?.Value ?? "Desconhecido";
+
+                var detalhes = $"Antes: Nome={veiculo.Nome}, Marca={veiculo.Marca}, Ano={veiculo.Ano}; Depois: Nome={veiculoDTO.Nome}, Marca={veiculoDTO.Marca}, Ano={veiculoDTO.Ano}";
+
                 veiculo.Nome = veiculoDTO.Nome;
                 veiculo.Marca = veiculoDTO.Marca;
                 veiculo.Ano = veiculoDTO.Ano;
 
                 veiculoServico.Atualizar(veiculo);
 
+                logServico.Registrar(usuario, "Alterou Veículo", detalhes);
+
                 return Results.Ok(veiculo);
-            })
-            .RequireAuthorization()
-            .RequireAuthorization(new AuthorizeAttribute { Roles = "Adm" })
-            .WithTags("Veiculos");
+})
+.RequireAuthorization(new AuthorizeAttribute { Roles = "Adm" })
+.WithTags("Veiculos");
+
 
             endpoints.MapDelete("/veiculos/{id}", ([FromRoute] int id, IVeiculoServico veiculoServico) => {
                 var veiculo = veiculoServico.BuscaPorId(id);

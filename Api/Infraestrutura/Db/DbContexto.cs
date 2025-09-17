@@ -1,3 +1,4 @@
+using Dominio.Entidades;
 using Microsoft.EntityFrameworkCore;
 using MinimalApi.Dominio.Entidades;
 
@@ -13,16 +14,18 @@ public class DbContexto : DbContext
 
     public DbSet<Administrador> Administradores { get; set; } = default!;
     public DbSet<Veiculo> Veiculos { get; set; } = default!;
+    public DbSet<LogAuditoria> Logs { get; set; } = default!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Administrador>().HasData(
-            new Administrador {
+            new Administrador
+            {
                 Id = 1,
                 Email = "administrador@teste.com",
                 Senha = "123456",
                 Perfil = "Adm"
-             }
+            }
         );
     }
 
